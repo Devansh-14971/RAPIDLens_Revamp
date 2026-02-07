@@ -2,6 +2,8 @@ name: Update Version
 
 on:
   push:
+    branches:
+      - main
   release:
     types: [published, edited]
   workflow_dispatch:
@@ -11,10 +13,13 @@ permissions:
 
 jobs:
   bump-version:
+    if: github.actor != 'github-actions'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
+        with:
+          fetch-depth: 0
+          
       - name: Detect changed files
         id: changes
         uses: dorny/paths-filter@v3
@@ -37,7 +42,16 @@ jobs:
           echo "major=$major" >> $GITHUB_ENV
           echo "minor=$minor" >> $GITHUB_ENV
           echo "patch=$patch" >> $GITHUB_ENV
-
+          
+      - name: Skip if no relevant changes
+        if: |
+          steps.changes.outputs.requirements != 'true' &&
+          steps.changes.outputs.config != 'true' &&
+          steps.changes.outputs.model-data != 'true'
+        run: |
+          echo "No version-relevant changes detected. Exiting."
+          exit 0
+          
       - name: Bump version
         run: |
           new_minor=$minor
@@ -66,3 +80,6 @@ jobs:
         with:
           commit_message: "ci: bump version to ${{ env.major }}.${{ env.new_minor }}.${{ env.new_patch }}"
           file_pattern: version.json
+          commit_user_name: github-actions
+          commit_user_email: github-actions@github.com
+          skip_dirty_check: false
